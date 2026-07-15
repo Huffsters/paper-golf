@@ -1,0 +1,10 @@
+{
+  "name": "paper-golf",
+  "private": true,
+  "version": "1.0.0",
+  "description": "A daily paper golf puzzle — golf.huffsters.com",
+  "type": "module",
+  "scripts": {
+    "test": "node test/sim.mjs"
+  }
+}
