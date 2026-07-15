@@ -13,13 +13,16 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=2">
+  <link rel="stylesheet" href="css/style.css?v=3">
 </head>
 <body>
   <header class="top">
     <button class="icon-btn" id="btn-help" aria-label="How to play">?</button>
     <h1>Paper Golf</h1>
-    <button class="icon-btn" id="btn-stats" aria-label="Statistics">📊</button>
+    <span class="btn-group">
+      <button class="icon-btn" id="btn-board" aria-label="Leaderboard">🏆</button>
+      <button class="icon-btn" id="btn-stats" aria-label="Statistics">📊</button>
+    </span>
   </header>
 
   <div class="hud">
@@ -64,6 +67,15 @@
     </div>
   </div>
 
+  <!-- Leaderboard -->
+  <div class="modal" id="modal-board">
+    <div class="card">
+      <button class="close" aria-label="Close">✕</button>
+      <h2>Today’s leaderboard</h2>
+      <div id="board-body" class="muted">Loading…</div>
+    </div>
+  </div>
+
   <!-- Round finished -->
   <div class="modal" id="modal-end">
     <div class="card">
@@ -72,12 +84,20 @@
       <p id="end-sub" class="muted"></p>
       <p id="end-trail" class="trail"></p>
       <button id="btn-share" class="big-btn">Share</button>
+      <div id="leaderboard">
+        <h3>Today’s leaderboard</h3>
+        <div id="lb-submit" hidden>
+          <input id="lb-name" maxlength="16" autocomplete="nickname" placeholder="Your name">
+          <button id="lb-post">Post my score</button>
+        </div>
+        <div id="lb-body" class="muted">Loading…</div>
+      </div>
       <p class="muted next">Next hole in <b id="countdown">–</b></p>
       <div id="end-stats"></div>
     </div>
   </div>
 
   <noscript><p style="text-align:center">Paper Golf needs JavaScript to play.</p></noscript>
-  <script type="module" src="js/main.js?v=2"></script>
+  <script type="module" src="js/main.js?v=3"></script>
 </body>
 </html>

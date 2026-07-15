@@ -65,6 +65,28 @@ export function saveProgress(progress) {
   try { localStorage.setItem(PROG_KEY, JSON.stringify(progress)); } catch { /* private mode */ }
 }
 
+// Anonymous per-browser identity + display name for the leaderboard.
+export function playerId() {
+  try {
+    let id = localStorage.getItem('pg-player');
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem('pg-player', id);
+    }
+    return id;
+  } catch {
+    return crypto.randomUUID(); // private mode: valid for this visit only
+  }
+}
+
+export function getName() {
+  try { return localStorage.getItem('pg-name') || ''; } catch { return ''; }
+}
+
+export function setName(name) {
+  try { localStorage.setItem('pg-name', name); } catch { /* private mode */ }
+}
+
 const SEEN_KEY = 'pg-seen-help';
 export function firstVisit() {
   try {

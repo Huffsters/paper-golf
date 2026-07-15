@@ -5,8 +5,9 @@ import {
   CLUBS, DIRS, clubAllowed, aimInBounds, resolveShot,
 } from './course.js';
 import * as R from './render.js';
-import { loadStats, loadProgress, saveProgress, recordResult, resultInfo, firstVisit } from './state.js';
+import { loadStats, loadProgress, saveProgress, recordResult, resultInfo, firstVisit, playerId, getName, setName } from './state.js';
 import { buildShareText, share } from './share.js';
+import { fetchBoard, submitScore } from './leaderboard.js';
 
 const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 const $ = (id) => document.getElementById(id);
@@ -212,8 +213,76 @@ function openEndModal() {
   $('end-trail').textContent = game.trail.join('');
   renderStats($('end-stats'));
   startCountdown();
+  initLeaderboardUI();
   openModal('modal-end');
 }
+
+// --- leaderboard -----------------------------------------------------------
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+}
+
+function renderBoard(container, data) {
+  const meLine = data.me
+    ? `<p class="lb-me">You’re #${data.me.rank} of ${data.total} today</p>`
+    : `<p class="lb-me">${data.total} posted today</p>`;
+  const rows = data.top.map((r, i) =>
+    `<li><span class="lb-rank">${i + 1}</span><span class="lb-nm">${escapeHtml(r.name)}</span><span class="lb-tr">${escapeHtml(r.trail || '')}</span><b>${r.strokes}</b></li>`,
+  ).join('');
+  container.classList.remove('muted');
+  container.innerHTML = meLine + (rows
+    ? `<ol class="lb-list">${rows}</ol>`
+    : '<p class="muted">No scores posted yet — be the first!</p>');
+}
+
+async function initLeaderboardUI() {
+  const submitBox = $('lb-submit');
+  const body = $('lb-body');
+  submitBox.hidden = game.pickedUp || !!progress.posted;
+  $('lb-name').value = getName();
+  body.textContent = 'Loading…';
+  try {
+    renderBoard(body, await fetchBoard(number, playerId()));
+  } catch {
+    submitBox.hidden = true;
+    body.textContent = 'Leaderboard unavailable.';
+  }
+}
+
+$('lb-post').addEventListener('click', async () => {
+  const name = $('lb-name').value.trim();
+  if (!name) { $('lb-name').focus(); return; }
+  setName(name);
+  const btn = $('lb-post');
+  btn.disabled = true;
+  btn.textContent = 'Posting…';
+  try {
+    const res = await submitScore({
+      puzzle: number, playerId: playerId(), name,
+      strokes: game.strokes, trail: game.trail.join(''),
+    });
+    progress.posted = true;
+    saveProgress(progress);
+    $('lb-submit').hidden = true;
+    renderBoard($('lb-body'), res);
+  } catch {
+    btn.disabled = false;
+    btn.textContent = 'Post my score';
+    $('lb-body').textContent = 'Couldn’t post — try again in a minute.';
+  }
+});
+
+$('btn-board').addEventListener('click', async () => {
+  openModal('modal-board');
+  const body = $('board-body');
+  body.textContent = 'Loading…';
+  try {
+    renderBoard(body, await fetchBoard(number, playerId()));
+  } catch {
+    body.textContent = 'Leaderboard unavailable.';
+  }
+});
 
 $('btn-share').addEventListener('click', async () => {
   const diff = game.strokes - course.par;

@@ -9,7 +9,13 @@ your browser.
 
 ## How it works
 
-- **Fully static** — no server, no accounts, no database. Hosted on Cloudflare Pages.
+- **Static site + one tiny API** — hosted on Cloudflare Pages, with the daily
+  leaderboard as a Pages Function (`functions/api/scores.js`) backed by a D1 database.
+  No accounts: players are an anonymous UUID in `localStorage` plus a self-chosen
+  display name; one score per browser per day (first post stands). The function
+  reuses the game's own solver, so scores below the day's optimal are rejected.
+  Without the D1 binding the API returns 503 and the game simply hides the
+  leaderboard — everything else works.
 - The daily course is **generated client-side** from a seeded PRNG keyed to the puzzle
   number (days since launch, rolling over at each player's local midnight). Everyone
   gets a byte-identical course.
@@ -33,14 +39,20 @@ your browser.
 No build step — plain ES modules.
 
 ```
-py -m http.server 8791          # serve locally (any static server works)
-node test/sim.mjs               # simulate 730 days: solvability, determinism, par spread
+npx wrangler pages dev . --port 8792 --d1 DB   # full stack: site + API + local D1
+py -m http.server 8791                         # static only (leaderboard hidden)
+node test/sim.mjs                              # simulate 730 days: solvability, determinism, par spread
 ```
 
 ## Deploying
 
 Push to `main` — Cloudflare Pages auto-deploys (framework preset: **None**, no build
 command, output directory `/`).
+
+Leaderboard one-time setup: create a D1 database (Storage & Databases → D1 →
+Create → name it `paper-golf`), then in the Pages project add the binding
+(Settings → Bindings → Add → D1 database, variable name **DB**, select the
+database) and redeploy. The schema creates itself on first request.
 
 When changing `css/style.css` or `js/*.js`, bump the `?v=N` query on the asset URLs in
 `index.html` so returning players' browsers pick up the new files.
