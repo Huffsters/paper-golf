@@ -2,7 +2,7 @@
 // aiming targets, the dice face, and the editor paint surface. All positions
 // are in cell coordinates; this module owns the pixel math.
 
-import { COLS, ROWS, FAIRWAY, TREE, SAND, WATER, ROUGH } from './course.js?v=6';
+import { COLS, ROWS, FAIRWAY, TREE, SAND, WATER, ROUGH } from './course.js?v=7';
 import { hashSeed } from './rng.js';
 
 const CELL = 36;
@@ -216,25 +216,30 @@ export function clearAim(layers) {
   layers.aim.replaceChildren();
 }
 
-// targets: [{dirIdx, x, y}]. onPick(dirIdx) is called on tap.
-export function showAim(layers, from, targets, selectedDir, onPick) {
+// targets: [{key, dirIdx, putt, x, y}]. `key` identifies the selection (roll
+// and putt targets in the same direction are distinct). onPick(dirIdx, putt)
+// fires on tap. Putt targets (the always-available 1-square move) render
+// smaller and greener so they read as a gentle tap-in option.
+export function showAim(layers, from, targets, selectedKey, onPick) {
   clearAim(layers);
   for (const t of targets) {
-    const sel = t.dirIdx === selectedDir;
+    const sel = t.key === selectedKey;
     const g = el('g', { class: 'aim-target' + (sel ? ' selected' : '') }, layers.aim);
     if (sel) {
-      inkLine(layers.aim, from, t, { stroke: '#e0912f', dash: '2 7' });
+      inkLine(layers.aim, from, t, { stroke: t.putt ? '#3a8a52' : '#e0912f', dash: '2 7' });
       layers.aim.appendChild(g); // keep the target above its preview line
     }
+    const base = t.putt ? 6 : 8;
     el('circle', {
-      cx: px(t.x), cy: px(t.y), r: sel ? 10 : 8,
-      fill: sel ? 'rgba(224,145,47,0.85)' : 'rgba(74,74,156,0.14)',
-      stroke: sel ? '#b06f1a' : '#4a4a9c', 'stroke-width': 1.8,
-      'stroke-dasharray': sel ? 'none' : '3 3',
+      cx: px(t.x), cy: px(t.y), r: sel ? base + 2 : base,
+      fill: sel ? (t.putt ? 'rgba(58,138,82,0.85)' : 'rgba(224,145,47,0.85)')
+        : (t.putt ? 'rgba(58,138,82,0.16)' : 'rgba(74,74,156,0.14)'),
+      stroke: sel ? (t.putt ? '#2e6b3d' : '#b06f1a') : (t.putt ? '#3a8a52' : '#4a4a9c'),
+      'stroke-width': 1.8, 'stroke-dasharray': sel ? 'none' : '3 3',
     }, g);
-    const hit = el('circle', { cx: px(t.x), cy: px(t.y), r: 16, fill: 'transparent' }, g);
+    const hit = el('circle', { cx: px(t.x), cy: px(t.y), r: t.putt ? 13 : 16, fill: 'transparent' }, g);
     hit.style.cursor = 'pointer';
-    hit.addEventListener('pointerdown', (e) => { e.preventDefault(); onPick(t.dirIdx); });
+    hit.addEventListener('pointerdown', (e) => { e.preventDefault(); onPick(t.dirIdx, t.putt); });
   }
 }
 

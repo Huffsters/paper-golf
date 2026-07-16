@@ -5,12 +5,12 @@
 import {
   generateCourse, decodeCourse, puzzleNumber, msUntilNextPuzzle,
   DIRS, aimInBounds, resolveShot, turnDistance, lieName,
-} from './course.js?v=6';
-import * as R from './render.js?v=6';
-import * as ED from './editor.js?v=6';
-import { loadStats, loadProgress, saveProgress, recordResult, resultInfo, firstVisit, playerId, getName, setName } from './state.js?v=6';
-import { buildShareText, share, fmtTime } from './share.js?v=6';
-import { fetchBoard, submitScore } from './leaderboard.js?v=6';
+} from './course.js?v=7';
+import * as R from './render.js?v=7';
+import * as ED from './editor.js?v=7';
+import { loadStats, loadProgress, saveProgress, recordResult, resultInfo, firstVisit, playerId, getName, setName } from './state.js?v=7';
+import { buildShareText, share, fmtTime } from './share.js?v=7';
+import { fetchBoard, submitScore } from './leaderboard.js?v=7';
 
 const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 const $ = (id) => document.getElementById(id);
@@ -23,7 +23,7 @@ let mode = 'daily'; // 'daily' | 'free' | 'custom' | 'edit'
 let course = dailyCourse;
 let layers = null;
 let game = null;
-let selDir = null;
+let selKey = null; // currently-lined-up aim target: 'r'+dir (roll) or 'p'+dir (putt)
 let animating = false;
 let finalStats = loadStats();
 let customCode = null;      // course code when mode === 'custom'
@@ -41,7 +41,7 @@ function startRound(newMode, newCourse, opts = {}) {
   customFromEditor = !!opts.fromEditor;
   layers = R.initBoard($('board'), course);
   game = { ball: { ...course.tee }, strokes: 0, swings: 0, over: false, pickedUp: false, trail: [] };
-  selDir = null;
+  selKey = null;
   stopTicker();
   $('hud-timebox').hidden = true;
   $('dice').hidden = false;
@@ -54,9 +54,9 @@ function startRound(newMode, newCourse, opts = {}) {
 // Build the daily round from saved progress (replays today's shots).
 async function loadDaily() {
   startRound('daily', dailyCourse);
-  for (const dirIdx of progress.shots) {
+  for (const [dirIdx, putt] of progress.shots) {
     if (game.over) break;
-    await shoot(dirIdx, false);
+    await shoot(dirIdx, !!putt, false);
   }
   if (!game.over) {
     if (progress.startedAt) startTicker(); // resume the clock mid-round
@@ -116,16 +116,18 @@ function renderDice(t) {
   $('dice').hidden = false;
   R.drawDie($('die'), t.roll);
   const modTxt = t.mod > 0 ? ' +1 fairway' : t.mod < 0 ? ' −1 sand' : '';
-  $('roll-text').innerHTML = `You rolled <b>${t.roll}</b>${modTxt} → fly <b>${t.dist}</b> square${t.dist === 1 ? '' : 's'}`;
+  const puttNote = t.dist > 1 ? ' <span class="putt-note">· or putt 1</span>' : '';
+  $('roll-text').innerHTML = `You rolled <b>${t.roll}</b>${modTxt} → fly <b>${t.dist}</b> square${t.dist === 1 ? '' : 's'}${puttNote}`;
 }
 
 // --- core turn -----------------------------------------------------------------
 
-async function shoot(dirIdx, live) {
+async function shoot(dirIdx, putt, live) {
   const t = turnDistance(course, game.ball, game.swings);
+  const dist = putt ? 1 : t.dist; // a putt is always exactly 1 square
   const dir = DIRS[dirIdx];
   const from = { ...game.ball };
-  const r = resolveShot(course, from, dir, t.dist);
+  const r = resolveShot(course, from, dir, dist);
   if (r.oob) return; // defensive; the UI never offers these
 
   if (live && isDaily() && !progress.startedAt) {
@@ -141,7 +143,7 @@ async function shoot(dirIdx, live) {
   if (live) {
     animating = true;
     R.clearAim(layers);
-    selDir = null;
+    selKey = null;
     R.drawShot(layers, from, r, game.strokes, r.holed ? 'holed' : r.water ? 'splash' : 'rest');
     R.moveBall(layers, r.x, r.y, true);
     await wait(290);
@@ -156,7 +158,7 @@ async function shoot(dirIdx, live) {
     }
     animating = false;
     if (isDaily()) {
-      progress.shots.push(dirIdx);
+      progress.shots.push([dirIdx, putt ? 1 : 0]);
       saveProgress(progress);
     }
   } else {
@@ -207,28 +209,35 @@ function renderAim() {
   const targets = [];
   DIRS.forEach((dir, dirIdx) => {
     if (aimInBounds(game.ball, dir, dist)) {
-      targets.push({ dirIdx, x: game.ball.x + dir.dx * dist, y: game.ball.y + dir.dy * dist });
+      targets.push({ key: `r${dirIdx}`, dirIdx, putt: false, x: game.ball.x + dir.dx * dist, y: game.ball.y + dir.dy * dist });
+    }
+    // The always-available 1-square putt — a separate ring, unless the roll is
+    // already 1 (then the roll targets ARE the adjacent squares).
+    if (dist > 1 && aimInBounds(game.ball, dir, 1)) {
+      targets.push({ key: `p${dirIdx}`, dirIdx, putt: true, x: game.ball.x + dir.dx, y: game.ball.y + dir.dy });
     }
   });
-  R.showAim(layers, game.ball, targets, selDir, onTargetTap);
-  if (selDir === null) {
-    setHint({
-      fairway: 'On the fairway: roll +1. Tap a target.',
-      rough: 'In the rough: no bonus. Tap a target.',
-      sand: 'In the sand: roll −1. Tap a target.',
-    }[lieName(game.turn.cell)]);
+  R.showAim(layers, game.ball, targets, selKey, onTargetTap);
+  if (selKey === null) {
+    const lie = {
+      fairway: 'On the fairway: roll +1.',
+      rough: 'In the rough: no bonus.',
+      sand: 'In the sand: roll −1.',
+    }[lieName(game.turn.cell)];
+    setHint(dist > 1 ? `${lie} Tap a big target, or a small dot to putt 1.` : `${lie} Tap a target.`);
   }
 }
 
-async function onTargetTap(dirIdx) {
+async function onTargetTap(dirIdx, putt) {
   if (animating || game.over) return;
-  if (selDir === dirIdx) {
-    selDir = null;
-    await shoot(dirIdx, true);
+  const key = (putt ? 'p' : 'r') + dirIdx;
+  if (selKey === key) {
+    selKey = null;
+    await shoot(dirIdx, putt, true);
   } else {
-    selDir = dirIdx;
+    selKey = key;
     renderAim();
-    setHint('Tap the target again to swing.');
+    setHint(putt ? 'Tap again to putt 1 square.' : 'Tap the target again to swing.');
   }
 }
 

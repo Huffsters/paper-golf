@@ -31,6 +31,10 @@ your browser.
   course and indexed by swing number, so every player gets the same rolls: dailies
   and shared customs stay a pure routing contest.
 - Lie modifiers: **fairway +1**, **rough ±0**, **sand −1** (clamped to 1..7).
+- You may **always putt exactly 1 square** in any direction instead of using the
+  roll (paper-golf's tap-in rule). The solver models it as a distance-1 edge every
+  turn, so par accounts for it; the UI shows the 8 adjacent squares as a smaller
+  green ring beside the roll targets.
 - 🌲 **Trees** block the ball mid-flight — it drops short. Deliberately wasting a
   swing into one to burn a bad roll is legal and sometimes optimal.
 - 🟦 **Water**: penalty stroke, replay from where you swung (the ball flies *over*

@@ -92,9 +92,10 @@ export function aimInBounds(from, dir, dist) {
 // With dice, every legal swing matters to optimal play: a tree-blocked swing
 // that goes nowhere and even a water splash (stroke + penalty, ball returns)
 // both burn a roll and advance the sequence — sometimes that IS the best
-// move, and sometimes water is the only in-bounds option. So: Dijkstra over
-// (position, swing index) states, where a normal swing costs 1 stroke and a
-// water swing costs 2. Returns minimum strokes to hole out.
+// move, and sometimes water is the only in-bounds option. Instead of the
+// roll, a player may always putt exactly 1 square. So: Dijkstra over
+// (position, swing index) states, where a normal swing or putt costs 1
+// stroke and a water swing costs 2. Returns minimum strokes to hole out.
 export function solve(course, maxSwings = 20, maxStrokes = 24) {
   const stateKey = (x, y, swing) => (y * COLS + x) * (maxSwings + 1) + swing;
   const best = new Map();
@@ -113,13 +114,16 @@ export function solve(course, maxSwings = 20, maxStrokes = 24) {
     for (const st of bucket) {
       if (best.get(stateKey(st.x, st.y, st.swing)) !== s) continue; // stale entry
       const { dist } = turnDistance(course, st, st.swing);
+      const options = dist === 1 ? [1] : [dist, 1]; // the roll, and the ever-available 1-square putt
       for (const dir of DIRS) {
-        if (!aimInBounds(st, dir, dist)) continue;
-        const r = resolveShot(course, st, dir, dist);
-        if (r.oob) continue;
-        if (r.holed) return s + 1;
-        if (r.water) push(st.x, st.y, st.swing + 1, s + 2);
-        else push(r.x, r.y, st.swing + 1, s + 1);
+        for (const d of options) {
+          if (!aimInBounds(st, dir, d)) continue;
+          const r = resolveShot(course, st, dir, d);
+          if (r.oob) continue;
+          if (r.holed) return s + 1;
+          if (r.water) push(st.x, st.y, st.swing + 1, s + 2);
+          else push(r.x, r.y, st.swing + 1, s + 1);
+        }
       }
     }
   }

@@ -52,15 +52,16 @@ export function recordResult(puzzle, bucket) {
   return stats;
 }
 
-// Today's round: {puzzle, fmt, shots: [dirIdx, ...], done, startedAt?, timeMs?, posted?}
-// fmt 2 = dice engine (one direction per swing; distances replay from the
+// Today's round: {puzzle, fmt, shots: [[dirIdx, putt], ...], done, startedAt?, timeMs?, posted?}
+// fmt 3 = dice engine with the 1-square putt option; each shot records its
+// direction and whether it was a putt (distances otherwise replay from the
 // seeded rolls). Older-format progress is discarded rather than misread.
 export function loadProgress(puzzle) {
   try {
     const p = JSON.parse(localStorage.getItem(PROG_KEY));
-    if (p && p.puzzle === puzzle && p.fmt === 2 && Array.isArray(p.shots)) return p;
+    if (p && p.puzzle === puzzle && p.fmt === 3 && Array.isArray(p.shots)) return p;
   } catch { /* fall through */ }
-  return { puzzle, fmt: 2, shots: [], done: false };
+  return { puzzle, fmt: 3, shots: [], done: false };
 }
 
 export function saveProgress(progress) {
