@@ -1,15 +1,16 @@
-// Game shell: wires the course, renderer, input, persistence, and modals.
-// Two modes share one board: 'daily' (timed, stats, leaderboard, streak) and
-// 'free' (endless random practice holes, nothing counts).
+// Game shell: wires the course, renderer, dice, input, persistence, modals,
+// and the course editor. Modes: 'daily' (timed, stats, leaderboard, streak),
+// 'free' (endless random holes), 'custom' (shared course links), 'edit'.
 
 import {
-  generateCourse, puzzleNumber, msUntilNextPuzzle,
-  CLUBS, DIRS, clubAllowed, aimInBounds, resolveShot,
-} from './course.js';
-import * as R from './render.js';
-import { loadStats, loadProgress, saveProgress, recordResult, resultInfo, firstVisit, playerId, getName, setName } from './state.js';
-import { buildShareText, share, fmtTime } from './share.js?v=5';
-import { fetchBoard, submitScore } from './leaderboard.js?v=5';
+  generateCourse, decodeCourse, puzzleNumber, msUntilNextPuzzle,
+  DIRS, aimInBounds, resolveShot, turnDistance, lieName,
+} from './course.js?v=6';
+import * as R from './render.js?v=6';
+import * as ED from './editor.js?v=6';
+import { loadStats, loadProgress, saveProgress, recordResult, resultInfo, firstVisit, playerId, getName, setName } from './state.js?v=6';
+import { buildShareText, share, fmtTime } from './share.js?v=6';
+import { fetchBoard, submitScore } from './leaderboard.js?v=6';
 
 const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 const $ = (id) => document.getElementById(id);
@@ -18,47 +19,48 @@ const dailyNumber = puzzleNumber();
 const dailyCourse = generateCourse(dailyNumber);
 const progress = loadProgress(dailyNumber);
 
-let mode = 'daily'; // 'daily' | 'free'
+let mode = 'daily'; // 'daily' | 'free' | 'custom' | 'edit'
 let course = dailyCourse;
 let layers = null;
 let game = null;
-let selClub = null;
 let selDir = null;
 let animating = false;
 let finalStats = loadStats();
+let customCode = null;      // course code when mode === 'custom'
+let customFromEditor = false;
 
 const isDaily = () => mode === 'daily';
 const maxStrokes = () => course.par + 5;
 
 // --- round lifecycle ---------------------------------------------------------
 
-function startRound(newMode, newCourse) {
+function startRound(newMode, newCourse, opts = {}) {
   mode = newMode;
   course = newCourse;
+  customCode = opts.code || null;
+  customFromEditor = !!opts.fromEditor;
   layers = R.initBoard($('board'), course);
-  game = { ball: { ...course.tee }, strokes: 0, inSand: false, over: false, pickedUp: false, trail: [] };
-  selClub = pickDefaultClub();
+  game = { ball: { ...course.tee }, strokes: 0, swings: 0, over: false, pickedUp: false, trail: [] };
   selDir = null;
   stopTicker();
   $('hud-timebox').hidden = true;
+  $('dice').hidden = false;
+  $('editor-bar').hidden = true;
   updateHud();
-  renderClubs();
-  renderAim();
   updateFooter();
+  beginTurn(false);
 }
 
 // Build the daily round from saved progress (replays today's shots).
 async function loadDaily() {
   startRound('daily', dailyCourse);
-  for (const [c, d] of progress.shots) {
+  for (const dirIdx of progress.shots) {
     if (game.over) break;
-    await shoot(c, d, false);
+    await shoot(dirIdx, false);
   }
   if (!game.over) {
     if (progress.startedAt) startTicker(); // resume the clock mid-round
-    selClub = pickDefaultClub();
-    renderClubs();
-    renderAim();
+    beginTurn(false);
   }
 }
 
@@ -90,13 +92,40 @@ function showFinalTime() {
   }
 }
 
+// --- dice turn ------------------------------------------------------------------
+
+// Reveal this swing's roll and offer the aim targets for its distance.
+async function beginTurn(animateRoll) {
+  if (game.over) { renderDice(null); return; }
+  const t = turnDistance(course, game.ball, game.swings);
+  game.turn = t;
+  if (animateRoll) {
+    animating = true;
+    for (let i = 0; i < 4; i++) {
+      R.drawDie($('die'), 1 + Math.floor(Math.random() * 6));
+      await wait(70);
+    }
+    animating = false;
+  }
+  renderDice(t);
+  renderAim();
+}
+
+function renderDice(t) {
+  if (!t) { $('dice').hidden = true; return; }
+  $('dice').hidden = false;
+  R.drawDie($('die'), t.roll);
+  const modTxt = t.mod > 0 ? ' +1 fairway' : t.mod < 0 ? ' −1 sand' : '';
+  $('roll-text').innerHTML = `You rolled <b>${t.roll}</b>${modTxt} → fly <b>${t.dist}</b> square${t.dist === 1 ? '' : 's'}`;
+}
+
 // --- core turn -----------------------------------------------------------------
 
-async function shoot(clubIdx, dirIdx, live) {
-  const club = CLUBS[clubIdx];
+async function shoot(dirIdx, live) {
+  const t = turnDistance(course, game.ball, game.swings);
   const dir = DIRS[dirIdx];
   const from = { ...game.ball };
-  const r = resolveShot(course, from, dir, club.dist);
+  const r = resolveShot(course, from, dir, t.dist);
   if (r.oob) return; // defensive; the UI never offers these
 
   if (live && isDaily() && !progress.startedAt) {
@@ -104,12 +133,10 @@ async function shoot(clubIdx, dirIdx, live) {
     startTicker();
   }
 
+  game.swings += 1;
   game.strokes += r.water ? 2 : 1; // water = stroke + penalty stroke
-  game.trail.push(r.holed ? '⛳' : r.water ? '🟦' : r.sand ? '🟨' : r.blocked ? '🌲' : '🟩');
-  if (!r.water) {
-    game.ball = { x: r.x, y: r.y };
-    game.inSand = r.sand;
-  }
+  game.trail.push(r.holed ? '⛳' : r.water ? '🟦' : r.sand ? '🟨' : r.blocked ? '🌲' : r.rough ? '🟫' : '🟩');
+  if (!r.water) game.ball = { x: r.x, y: r.y };
 
   if (live) {
     animating = true;
@@ -129,7 +156,7 @@ async function shoot(clubIdx, dirIdx, live) {
     }
     animating = false;
     if (isDaily()) {
-      progress.shots.push([clubIdx, dirIdx]);
+      progress.shots.push(dirIdx);
       saveProgress(progress);
     }
   } else {
@@ -145,16 +172,13 @@ async function shoot(clubIdx, dirIdx, live) {
     finish(live);
   }
   updateHud();
-  if (!game.over && (selClub === null || !clubAllowed(CLUBS[selClub], game.inSand))) {
-    selClub = pickDefaultClub();
-  }
-  renderClubs();
-  if (!game.over && live) renderAim();
+  if (!game.over && live) await beginTurn(true);
 }
 
 function finish(live) {
   game.over = true;
   R.clearAim(layers);
+  renderDice(null);
   stopTicker();
   const diff = game.strokes - course.par;
   const info = resultInfo(diff, game.pickedUp);
@@ -175,15 +199,11 @@ function finish(live) {
   setTimeout(openEndModal, live ? 700 : 250);
 }
 
-function pickDefaultClub() {
-  return game.inSand ? CLUBS.findIndex((c) => clubAllowed(c, true)) : 0;
-}
-
 // --- aiming --------------------------------------------------------------------
 
 function renderAim() {
-  if (game.over || selClub === null) { R.clearAim(layers); return; }
-  const dist = CLUBS[selClub].dist;
+  if (game.over || !game.turn) { R.clearAim(layers); return; }
+  const dist = game.turn.dist;
   const targets = [];
   DIRS.forEach((dir, dirIdx) => {
     if (aimInBounds(game.ball, dir, dist)) {
@@ -192,18 +212,19 @@ function renderAim() {
   });
   R.showAim(layers, game.ball, targets, selDir, onTargetTap);
   if (selDir === null) {
-    setHint(game.inSand
-      ? 'In the sand — only short clubs get you out. Tap a target.'
-      : 'Tap a target to line up your shot.');
+    setHint({
+      fairway: 'On the fairway: roll +1. Tap a target.',
+      rough: 'In the rough: no bonus. Tap a target.',
+      sand: 'In the sand: roll −1. Tap a target.',
+    }[lieName(game.turn.cell)]);
   }
 }
 
 async function onTargetTap(dirIdx) {
   if (animating || game.over) return;
   if (selDir === dirIdx) {
-    const clubIdx = selClub;
     selDir = null;
-    await shoot(clubIdx, dirIdx, true);
+    await shoot(dirIdx, true);
   } else {
     selDir = dirIdx;
     renderAim();
@@ -214,9 +235,9 @@ async function onTargetTap(dirIdx) {
 // --- chrome --------------------------------------------------------------------
 
 function updateHud() {
-  $('hud-hole').textContent = isDaily() ? `Hole #${dailyNumber}` : 'Free play';
-  $('hud-par').textContent = `Par ${course.par}`;
-  $('hud-strokes').textContent = `Strokes ${game.strokes}`;
+  $('hud-hole').textContent = { daily: `Hole #${dailyNumber}`, free: 'Free play', custom: 'Custom hole', edit: 'Editor' }[mode];
+  $('hud-par').textContent = mode === 'edit' ? '✏️' : `Par ${course.par}`;
+  $('hud-strokes').textContent = mode === 'edit' ? 'paint!' : `Strokes ${game.strokes}`;
 }
 
 function setHint(text) {
@@ -224,32 +245,21 @@ function setHint(text) {
 }
 
 function updateFooter() {
-  $('footer-note').textContent = isDaily() ? 'a new hole every midnight' : 'free play — nothing counts';
-  $('btn-newfree').hidden = isDaily();
+  $('footer-note').textContent = {
+    daily: 'a new hole every midnight',
+    free: 'free play — nothing counts',
+    custom: 'a friend’s course — nothing counts',
+    edit: 'draw, then share your hole',
+  }[mode];
+  $('btn-newfree').hidden = mode !== 'free';
+  $('btn-freeplay').hidden = mode === 'edit';
   $('btn-freeplay').textContent = isDaily() ? 'free play ⛳' : 'today’s hole';
-}
-
-function renderClubs() {
-  const wrap = $('clubs');
-  wrap.replaceChildren();
-  CLUBS.forEach((club, i) => {
-    const btn = document.createElement('button');
-    btn.className = 'club' + (i === selClub ? ' selected' : '');
-    btn.disabled = game.over || !clubAllowed(club, game.inSand);
-    btn.innerHTML = `${club.name}<span class="dist">${club.dist}</span>`;
-    btn.addEventListener('click', () => {
-      if (animating || game.over) return;
-      selClub = i;
-      selDir = null;
-      renderClubs();
-      renderAim();
-    });
-    wrap.appendChild(btn);
-  });
+  $('btn-editor').textContent = mode === 'edit' ? 'exit editor' : 'editor ✏️';
 }
 
 $('btn-freeplay').addEventListener('click', async () => {
   if (animating) return;
+  if (mode === 'edit') return;
   if (isDaily()) startRound('free', randomCourse());
   else await loadDaily();
 });
@@ -257,6 +267,54 @@ $('btn-freeplay').addEventListener('click', async () => {
 $('btn-newfree').addEventListener('click', () => {
   if (animating) return;
   startRound('free', randomCourse());
+});
+
+// --- editor --------------------------------------------------------------------
+
+function enterEditor() {
+  mode = 'edit';
+  stopTicker();
+  $('hud-timebox').hidden = true;
+  $('dice').hidden = true;
+  $('editor-bar').hidden = false;
+  updateHud();
+  updateFooter();
+  ED.openEditor($('board'), setHint);
+}
+
+async function exitEditor() {
+  ED.closeEditor();
+  $('editor-bar').hidden = true;
+  await loadDaily();
+}
+
+$('btn-editor').addEventListener('click', async () => {
+  if (animating) return;
+  if (mode === 'edit') await exitEditor();
+  else { ED.closeEditor(); enterEditor(); }
+});
+
+$('btn-ed-clear').addEventListener('click', () => ED.clearEditor());
+
+$('btn-ed-test').addEventListener('click', () => {
+  const res = ED.currentCourse();
+  if (res.error) { setHint(res.error); return; }
+  ED.closeEditor();
+  $('editor-bar').hidden = true;
+  startRound('custom', res.course, { code: res.code, fromEditor: true });
+  setHint(`Par ${res.course.par} — play your hole!`);
+});
+
+$('btn-ed-share').addEventListener('click', async () => {
+  const res = ED.currentCourse();
+  if (res.error) { setHint(res.error); return; }
+  const url = `${location.origin}/#c=${res.code}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    setHint(`Link copied! Par ${res.course.par} — send it to a friend.`);
+  } catch {
+    setHint(`Couldn’t copy — the link is: ${url}`);
+  }
 });
 
 // --- modals --------------------------------------------------------------------
@@ -298,7 +356,7 @@ function openEndModal() {
   const diff = game.strokes - course.par;
   const info = resultInfo(diff, game.pickedUp);
   const daily = isDaily();
-  const where = daily ? `Hole #${dailyNumber}` : 'Free play';
+  const where = { daily: `Hole #${dailyNumber}`, free: 'Free play', custom: 'Custom hole' }[mode];
   const timeStr = daily && progress.timeMs != null && !game.pickedUp ? ` · ${fmtTime(progress.timeMs)}` : '';
   $('end-title').textContent = info.name;
   $('end-sub').textContent = game.pickedUp
@@ -309,7 +367,9 @@ function openEndModal() {
   $('leaderboard').hidden = !daily;
   $('end-next').hidden = !daily;
   $('end-stats').hidden = !daily;
-  $('free-actions').hidden = daily;
+  $('free-actions').hidden = mode !== 'free';
+  $('custom-actions').hidden = mode !== 'custom';
+  $('btn-back-editor').hidden = !customFromEditor;
   if (daily) {
     renderStats($('end-stats'));
     startCountdown();
@@ -323,9 +383,34 @@ $('btn-next-free').addEventListener('click', () => {
   startRound('free', randomCourse());
 });
 
-$('btn-back-daily').addEventListener('click', async () => {
+for (const id of ['btn-back-daily', 'btn-back-daily2']) {
+  $(id).addEventListener('click', async () => {
+    closeModal('modal-end');
+    await loadDaily();
+  });
+}
+
+$('btn-play-again').addEventListener('click', () => {
   closeModal('modal-end');
-  await loadDaily();
+  startRound('custom', course, { code: customCode, fromEditor: customFromEditor });
+});
+
+$('btn-copy-course').addEventListener('click', async () => {
+  const url = `${location.origin}/#c=${customCode}`;
+  const btn = $('btn-copy-course');
+  try {
+    await navigator.clipboard.writeText(url);
+    btn.textContent = 'Copied!';
+  } catch {
+    btn.textContent = 'Couldn’t copy';
+  }
+  setTimeout(() => (btn.textContent = 'Copy course link'), 1600);
+});
+
+$('btn-back-editor').addEventListener('click', () => {
+  closeModal('modal-end');
+  ED.loadIntoEditor(course);
+  enterEditor();
 });
 
 $('btn-share').addEventListener('click', async () => {
@@ -427,8 +512,16 @@ $('btn-board').addEventListener('click', async () => {
 // --- boot ----------------------------------------------------------------------
 
 async function boot() {
+  const m = /^#c=([frswtv0-9:]+)$/.exec(location.hash);
+  const custom = m && decodeCourse(m[1]);
+  if (custom) {
+    startRound('custom', custom, { code: m[1] });
+    setHint(`A friend sent you this hole — par ${custom.par}. Good luck!`);
+    return;
+  }
   await loadDaily();
-  if (!game.over && firstVisit()) openModal('modal-help');
+  if (m && !custom) setHint('That course link is broken — playing today’s hole instead.');
+  else if (!game.over && firstVisit()) openModal('modal-help');
 }
 
 boot();

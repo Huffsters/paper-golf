@@ -87,42 +87,63 @@ main { display: flex; flex-direction: column; align-items: center; width: 100%; 
   text-align: center;
 }
 
-#clubs {
+/* dice panel */
+#dice {
   display: flex;
-  gap: 7px;
-  padding: 4px 8px 10px;
-  width: 100%;
-  max-width: 430px;
-}
-.club {
-  flex: 1;
-  justify-content: center;
-  font-family: inherit;
-  font-size: clamp(0.92rem, 3.4vw, 1.08rem);
-  color: #33334f;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 14px 8px;
   background: var(--card);
   border: 2px solid #33334f;
-  border-radius: 12px;
-  padding: 7px 4px 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  border-radius: 14px;
   box-shadow: 1px 2px 0 rgba(51, 51, 79, 0.35);
+  margin-bottom: 8px;
+  color: #33334f;
+  font-size: clamp(0.95rem, 3.6vw, 1.1rem);
 }
-.club .dist {
-  background: #33334f;
-  color: var(--card);
-  border-radius: 50%;
-  width: 21px; height: 21px;
-  font-size: 0.88rem;
+#roll-text b { font-size: 1.15em; }
+
+/* editor toolbar */
+#editor-bar {
+  width: 100%;
+  max-width: 430px;
+  padding: 2px 8px 8px;
+}
+#brushes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  padding-bottom: 7px;
+}
+.brush {
+  font-family: inherit;
+  font-size: 0.92rem;
+  color: #33334f;
+  background: var(--card);
+  border: 2px solid rgba(51, 51, 79, 0.45);
+  border-radius: 10px;
+  padding: 3px 9px 3px 6px;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
 }
-.club.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
-.club.selected .dist { background: #fff; color: var(--accent); }
-.club:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
+.brush.selected { border-color: #33334f; background: #fff; box-shadow: 1px 2px 0 rgba(51, 51, 79, 0.35); }
+.brush-chip { width: 14px; height: 14px; border-radius: 5px; border: 1px solid rgba(51, 51, 79, 0.3); }
+.editor-actions { display: flex; gap: 8px; justify-content: center; }
+.ed-btn {
+  font-family: inherit;
+  font-size: 1rem;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 10px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+.ed-btn:nth-child(3) { background: #8a8672; }
+#board.painting { cursor: crosshair; touch-action: none; }
 
 footer {
   color: var(--muted);
@@ -189,6 +210,8 @@ footer {
 .chip-tree { background: #2e6b3d; }
 .chip-water { background: #b9def4; border: 1px solid #5f9fce; }
 .chip-sand { background: #f2e2af; border: 1px solid #cba75c; }
+.chip-fairway { background: #a4cd6c; }
+.chip-rough { background: #dde3c8; border: 1px solid #a3b278; }
 .chip-hole { background: #fff; border: 2px solid #2d2d2d; border-radius: 50%; }
 
 .muted { color: var(--muted); font-size: 0.98rem; }
@@ -206,6 +229,7 @@ footer {
   cursor: pointer;
   margin: 6px 0 4px;
 }
+.big-btn.secondary { background: #6b7a8f; font-size: 1.05rem; padding: 8px; }
 .next { text-align: center; }
 .btn-group { display: flex; gap: 6px; }
 

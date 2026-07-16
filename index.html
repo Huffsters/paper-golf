@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=5">
+  <link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body>
   <header class="top">
@@ -35,14 +35,26 @@
     <div id="board-wrap">
       <svg id="board" role="img" aria-label="Golf course"></svg>
     </div>
-    <p id="hint">Pick a club to aim.</p>
-    <div id="clubs"></div>
+    <p id="hint">Roll the die, pick a direction.</p>
+    <div id="dice">
+      <svg id="die" width="40" height="40" aria-label="Die"></svg>
+      <span id="roll-text">…</span>
+    </div>
+    <div id="editor-bar" hidden>
+      <div id="brushes"></div>
+      <div class="editor-actions">
+        <button id="btn-ed-test" class="ed-btn">▶ Test</button>
+        <button id="btn-ed-share" class="ed-btn">🔗 Share</button>
+        <button id="btn-ed-clear" class="ed-btn">Clear</button>
+      </div>
+    </div>
   </main>
 
   <footer>
     <span id="footer-note">a new hole every midnight</span>
     <button id="btn-newfree" class="link-btn" hidden>next hole ⛳</button>
     <button id="btn-freeplay" class="link-btn">free play ⛳</button>
+    <button id="btn-editor" class="link-btn">editor ✏️</button>
   </footer>
 
   <!-- How to play -->
@@ -50,16 +62,19 @@
     <div class="card">
       <button class="close" aria-label="Close">✕</button>
       <h2>How to play</h2>
-      <p>Get from the tee to the flag in as few strokes as you can. Pick a <b>club</b> — each flies a set distance — then tap a <b>target</b> to aim, and tap it again to swing.</p>
+      <p>Get from the tee to the flag in as few strokes as you can. Each turn you <b>roll the die 🎲</b> — that’s how far the ball flies. Tap one of the 8 <b>targets</b> to aim, tap it again to swing.</p>
+      <p>Your <b>lie</b> adjusts the roll:</p>
       <ul class="legend">
-        <li><span class="chip chip-tree"></span><span><b>Trees</b> block your ball — it drops short with a <i>thunk</i>.</span></li>
-        <li><span class="chip chip-water"></span><span><b>Water</b> costs a penalty stroke, and you replay the shot from where you swung. The ball flies over water — only where it lands matters.</span></li>
-        <li><span class="chip chip-sand"></span><span><b>Sand</b> plugs your ball — your next shot must be a Wedge or Putter.</span></li>
+        <li><span class="chip chip-fairway"></span><span><b>Fairway</b> (mowed green): roll <b>+1</b>. Stay on the short grass!</span></li>
+        <li><span class="chip chip-rough"></span><span><b>Rough</b> (pale, tufty): no bonus.</span></li>
+        <li><span class="chip chip-sand"></span><span><b>Sand</b>: roll <b>−1</b>.</span></li>
+        <li><span class="chip chip-tree"></span><span><b>Trees</b> block your ball — it drops short with a <i>thunk</i>. Sometimes wasting a shot into them is the smart play…</span></li>
+        <li><span class="chip chip-water"></span><span><b>Water</b> costs a penalty stroke, and you replay from where you swung. The ball flies over water — only where it lands matters.</span></li>
         <li><span class="chip chip-hole"></span><span>Land <b>exactly on the hole</b> to sink it.</span></li>
       </ul>
-      <p>Par is fair: every hole is checked to be beatable, and a <b>perfect round scores a Birdie</b>. If you reach par&nbsp;+&nbsp;5 strokes, you pick up — a ✗ that breaks your streak.</p>
+      <p>Everyone gets the <b>same rolls on the same swing</b>, so it’s all routing skill. Par is fair — every hole is checked to be beatable with its rolls, and a <b>perfect round scores a Birdie</b>. Reach par&nbsp;+&nbsp;5 and you pick up — a ✗ that breaks your streak.</p>
       <p>⏱ The daily round is <b>timed</b>, from your first swing to the final putt. Fewest strokes tops the leaderboard 🏆 — ties go to the faster golfer.</p>
-      <p>Everyone plays the <b>same hole each day</b>, with a new one at midnight. Warming up? <b>Free play</b> (below the clubs) deals endless practice holes that don’t count.</p>
+      <p>A new hole drops at midnight. Meanwhile: <b>free play</b> deals endless practice holes, and the <b>editor</b> ✏️ lets you draw your own hole and share it as a link.</p>
     </div>
   </div>
 
@@ -103,10 +118,16 @@
         <button id="btn-next-free" class="big-btn">Next hole ⛳</button>
         <button id="btn-back-daily" class="link-btn center">back to today’s hole</button>
       </div>
+      <div id="custom-actions" hidden>
+        <button id="btn-play-again" class="big-btn">Play it again</button>
+        <button id="btn-copy-course" class="big-btn secondary">Copy course link</button>
+        <button id="btn-back-editor" class="link-btn center">back to the editor</button>
+        <button id="btn-back-daily2" class="link-btn center">back to today’s hole</button>
+      </div>
     </div>
   </div>
 
   <noscript><p style="text-align:center">Paper Golf needs JavaScript to play.</p></noscript>
-  <script type="module" src="js/main.js?v=5"></script>
+  <script type="module" src="js/main.js?v=6"></script>
 </body>
 </html>

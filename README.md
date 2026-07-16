@@ -26,18 +26,30 @@ your browser.
 
 ## Rules
 
-- Clubs: Driver (6 cells), Iron (4), Wedge (2), Putter (1); 8 compass directions;
-  diagonals count one cell per step.
-- 🌲 **Trees** block the ball mid-flight — it drops short.
+- Each swing rolls a D6 — that's how far the ball flies, in one of 8 compass
+  directions (diagonals count one cell per step). The roll **sequence** is seeded per
+  course and indexed by swing number, so every player gets the same rolls: dailies
+  and shared customs stay a pure routing contest.
+- Lie modifiers: **fairway +1**, **rough ±0**, **sand −1** (clamped to 1..7).
+- 🌲 **Trees** block the ball mid-flight — it drops short. Deliberately wasting a
+  swing into one to burn a bad roll is legal and sometimes optimal.
 - 🟦 **Water**: penalty stroke, replay from where you swung (the ball flies *over*
-  water if it lands beyond it).
-- 🟨 **Sand**: next shot must be Wedge or Putter.
+  water if it lands beyond it). With dice this is effectively a paid re-roll — the
+  solver models it (Dijkstra over position × swing index, water edges cost 2).
 - Land exactly on the hole to sink it. Reach par + 5 and you pick up (✗, breaks streak).
-- The daily round is timed (wall clock, first swing → final putt; survives reloads via
-  `startedAt` in progress). The leaderboard ranks by strokes, then time, then post
-  order; untimed entries sort last within a stroke count.
-- Free play (footer toggle) deals endless randomly-seeded holes from the same
-  generator — no stats, streak, timer, or leaderboard.
+- The daily round is timed (wall clock, first swing → final putt; survives reloads).
+  The leaderboard ranks by strokes, then time, then post order; untimed entries sort
+  last within a stroke count.
+- Free play (footer toggle) deals endless randomly-seeded holes — no stats, streak,
+  timer, or leaderboard.
+
+## Course editor
+
+The ✏️ editor (footer) paints tiles, places tee and hole, and shares the course as
+`https://golf.huffsters.com/#c=<code>` — the code is an RLE of the grid
+(`v1` + tee/hole coords + tile letters `frswt` with run lengths). Rolls for a custom
+course are seeded from the code itself, and `decodeCourse` solver-verifies it (a
+course with no path to the flag won't share or load).
 
 ## Development
 
