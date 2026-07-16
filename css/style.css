@@ -124,7 +124,33 @@ main { display: flex; flex-direction: column; align-items: center; width: 100%; 
 .club.selected .dist { background: #fff; color: var(--accent); }
 .club:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
 
-footer { color: var(--muted); font-size: 0.92rem; padding-bottom: 10px; }
+footer {
+  color: var(--muted);
+  font-size: 0.92rem;
+  padding-bottom: 10px;
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+}
+
+/* The hidden attribute must always win, even over display rules. */
+[hidden] { display: none !important; }
+
+.link-btn {
+  font-family: inherit;
+  font-size: 0.95rem;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  text-decoration: underline dotted;
+  cursor: pointer;
+}
+.link-btn.center { display: block; margin: 6px auto 0; }
+@media (prefers-color-scheme: dark) {
+  .link-btn { color: #7fbf8e; }
+  .card .link-btn { color: var(--accent); }
+}
 
 /* ---- modals ---- */
 .modal {
@@ -221,8 +247,10 @@ footer { color: var(--muted); font-size: 0.92rem; padding-bottom: 10px; }
 }
 .lb-rank { width: 22px; color: var(--muted); text-align: right; flex: none; }
 .lb-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lb-tr { font-size: 0.72rem; letter-spacing: 1px; flex: none; max-width: 40%; overflow: hidden; white-space: nowrap; }
+.lb-tr { font-size: 0.72rem; letter-spacing: 1px; flex: none; max-width: 34%; overflow: hidden; white-space: nowrap; }
+.lb-time { flex: none; color: var(--muted); font-size: 0.88rem; min-width: 38px; text-align: right; }
 .lb-list b { flex: none; width: 24px; text-align: right; }
+#free-actions { margin-top: 10px; }
 
 /* stats */
 .stat-row { display: flex; justify-content: space-around; margin: 12px 0 14px; }

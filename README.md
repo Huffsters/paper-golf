@@ -33,6 +33,11 @@ your browser.
   water if it lands beyond it).
 - 🟨 **Sand**: next shot must be Wedge or Putter.
 - Land exactly on the hole to sink it. Reach par + 5 and you pick up (✗, breaks streak).
+- The daily round is timed (wall clock, first swing → final putt; survives reloads via
+  `startedAt` in progress). The leaderboard ranks by strokes, then time, then post
+  order; untimed entries sort last within a stroke count.
+- Free play (footer toggle) deals endless randomly-seeded holes from the same
+  generator — no stats, streak, timer, or leaderboard.
 
 ## Development
 

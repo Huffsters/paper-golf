@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=4">
+  <link rel="stylesheet" href="css/style.css?v=5">
 </head>
 <body>
   <header class="top">
@@ -28,7 +28,7 @@
   <div class="hud">
     <span id="hud-hole">Hole</span><span class="sep">·</span>
     <span id="hud-par">Par</span><span class="sep">·</span>
-    <span id="hud-strokes">Strokes 0</span>
+    <span id="hud-strokes">Strokes 0</span><span id="hud-timebox" hidden><span class="sep">·</span>⏱ <span id="hud-time"></span></span>
   </div>
 
   <main>
@@ -39,7 +39,11 @@
     <div id="clubs"></div>
   </main>
 
-  <footer>a new hole every midnight</footer>
+  <footer>
+    <span id="footer-note">a new hole every midnight</span>
+    <button id="btn-newfree" class="link-btn" hidden>next hole ⛳</button>
+    <button id="btn-freeplay" class="link-btn">free play ⛳</button>
+  </footer>
 
   <!-- How to play -->
   <div class="modal" id="modal-help">
@@ -54,7 +58,8 @@
         <li><span class="chip chip-hole"></span><span>Land <b>exactly on the hole</b> to sink it.</span></li>
       </ul>
       <p>Par is fair: every hole is checked to be beatable, and a <b>perfect round scores a Birdie</b>. If you reach par&nbsp;+&nbsp;5 strokes, you pick up — a ✗ that breaks your streak.</p>
-      <p>Everyone plays the <b>same hole each day</b>, with a new one at midnight. Come back tomorrow to grow your streak 🔥 and top the leaderboard 🏆.</p>
+      <p>⏱ The daily round is <b>timed</b>, from your first swing to the final putt. Fewest strokes tops the leaderboard 🏆 — ties go to the faster golfer.</p>
+      <p>Everyone plays the <b>same hole each day</b>, with a new one at midnight. Warming up? <b>Free play</b> (below the clubs) deals endless practice holes that don’t count.</p>
     </div>
   </div>
 
@@ -92,12 +97,16 @@
         </div>
         <div id="lb-body" class="muted">Loading…</div>
       </div>
-      <p class="muted next">Next hole in <b id="countdown">–</b></p>
+      <p class="muted next" id="end-next">Next hole in <b id="countdown">–</b></p>
       <div id="end-stats"></div>
+      <div id="free-actions" hidden>
+        <button id="btn-next-free" class="big-btn">Next hole ⛳</button>
+        <button id="btn-back-daily" class="link-btn center">back to today’s hole</button>
+      </div>
     </div>
   </div>
 
   <noscript><p style="text-align:center">Paper Golf needs JavaScript to play.</p></noscript>
-  <script type="module" src="js/main.js?v=4"></script>
+  <script type="module" src="js/main.js?v=5"></script>
 </body>
 </html>

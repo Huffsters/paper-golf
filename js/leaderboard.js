@@ -8,11 +8,11 @@ export async function fetchBoard(puzzle, playerId) {
   return r.json();
 }
 
-export async function submitScore({ puzzle, playerId, name, strokes, trail }) {
+export async function submitScore({ puzzle, playerId, name, strokes, trail, timeMs }) {
   const r = await fetch('/api/scores', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ puzzle, playerId, name, strokes, trail }),
+    body: JSON.stringify({ puzzle, playerId, name, strokes, trail, timeMs }),
   });
   if (!r.ok) throw new Error(`submit: ${r.status}`);
   return r.json();

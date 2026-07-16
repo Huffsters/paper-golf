@@ -1,10 +1,22 @@
 // Wordle-style share text: spoiler-light (terrain per stroke, not the route).
 
-export function buildShareText({ number, par, strokes, trail, resultName, streak, pickedUp }) {
+// "m:ss" (or "h:mm:ss" for the truly contemplative golfer).
+export function fmtTime(ms) {
+  const s = Math.round(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const r = s % 60;
+  return h > 0
+    ? `${h}:${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`
+    : `${m}:${String(r).padStart(2, '0')}`;
+}
+
+export function buildShareText({ number, par, strokes, trail, resultName, streak, pickedUp, timeMs }) {
   const score = pickedUp ? `✗ ${strokes}/${par}` : `${strokes}/${par}`;
+  const time = timeMs != null ? ` in ${fmtTime(timeMs)}` : '';
   const lines = [
     `Paper Golf #${number} — ${resultName}`,
-    `⛳ ${score} · ${trail.join('')}`,
+    `⛳ ${score}${time} · ${trail.join('')}`,
   ];
   if (streak >= 2) lines.push(`🔥 ${streak}-day streak`);
   lines.push('https://golf.huffsters.com'); // full URL so chat apps auto-link it
