@@ -158,9 +158,8 @@ footer { color: var(--muted); font-size: 0.92rem; padding-bottom: 10px; }
   font-family: inherit;
 }
 .legend { list-style: none; margin: 10px 0; }
-.legend li { display: flex; gap: 9px; margin: 7px 0; line-height: 1.35; align-items: baseline; }
-.legend li b { margin-right: 2px; }
-.chip { flex: none; width: 15px; height: 15px; border-radius: 5px; display: inline-block; transform: translateY(2px); }
+.legend li { display: flex; gap: 9px; margin: 8px 0; line-height: 1.4; align-items: flex-start; }
+.chip { flex: none; width: 15px; height: 15px; border-radius: 5px; display: inline-block; margin-top: 4px; }
 .chip-tree { background: #2e6b3d; }
 .chip-water { background: #b9def4; border: 1px solid #5f9fce; }
 .chip-sand { background: #f2e2af; border: 1px solid #cba75c; }
