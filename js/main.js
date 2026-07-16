@@ -6,7 +6,7 @@ import {
 } from './course.js';
 import * as R from './render.js';
 import { loadStats, loadProgress, saveProgress, recordResult, resultInfo, firstVisit, playerId, getName, setName } from './state.js';
-import { buildShareText, share } from './share.js';
+import { buildShareText, share } from './share.js?v=4';
 import { fetchBoard, submitScore } from './leaderboard.js';
 
 const wait = (ms) => new Promise((res) => setTimeout(res, ms));

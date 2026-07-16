@@ -7,14 +7,17 @@ export function buildShareText({ number, par, strokes, trail, resultName, streak
     `⛳ ${score} · ${trail.join('')}`,
   ];
   if (streak >= 2) lines.push(`🔥 ${streak}-day streak`);
-  lines.push('golf.huffsters.com');
+  lines.push('https://golf.huffsters.com'); // full URL so chat apps auto-link it
   return lines.join('\n');
 }
 
-// Native share sheet where available (mobile), clipboard otherwise.
-// Returns 'shared' | 'copied' | 'failed' so the button can give feedback.
+const onMobile = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+// Desktop: straight to the clipboard (no OS share dialog). Phones: the native
+// share sheet — the natural path into a text — with clipboard as fallback.
+// Returns 'shared' | 'copied' | 'aborted' | 'failed' for button feedback.
 export async function share(text) {
-  if (navigator.share && navigator.canShare?.({ text })) {
+  if (onMobile() && navigator.share && navigator.canShare?.({ text })) {
     try {
       await navigator.share({ text });
       return 'shared';
