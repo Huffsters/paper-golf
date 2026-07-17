@@ -2,7 +2,7 @@
 // aiming targets, the dice face, and the editor paint surface. All positions
 // are in cell coordinates; this module owns the pixel math.
 
-import { COLS, ROWS, FAIRWAY, TREE, SAND, WATER, ROUGH } from './course.js?v=9';
+import { COLS, ROWS, FAIRWAY, TREE, SAND, WATER, ROUGH } from './course.js?v=10';
 import { hashSeed } from './rng.js';
 
 const CELL = 36;

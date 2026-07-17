@@ -114,8 +114,19 @@ export function solve(course, maxSwings = 20, maxStrokes = 24) {
     for (const st of bucket) {
       if (best.get(stateKey(st.x, st.y, st.swing)) !== s) continue; // stale entry
       const { dist } = turnDistance(course, st, st.swing);
-      const options = dist === 1 ? [1] : [dist, 1]; // the roll, and the ever-available 1-square putt
       for (const dir of DIRS) {
+        // Putt without rolling: 1 square, the roll stream does NOT advance.
+        if (aimInBounds(st, dir, 1)) {
+          const p = resolveShot(course, st, dir, 1);
+          if (!p.oob) {
+            if (p.holed) return s + 1;
+            if (p.water) push(st.x, st.y, st.swing, s + 2);
+            else push(p.x, p.y, st.swing, s + 1);
+          }
+        }
+        // Use the roll (or, having rolled, discard it for a putt — that draw
+        // is spent either way, so both advance the stream).
+        const options = dist === 1 ? [1] : [dist, 1];
         for (const d of options) {
           if (!aimInBounds(st, dir, d)) continue;
           const r = resolveShot(course, st, dir, d);

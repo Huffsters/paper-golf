@@ -5,12 +5,12 @@
 import {
   generateCourse, decodeCourse, puzzleNumber, msUntilNextPuzzle,
   DIRS, aimInBounds, resolveShot, turnDistance, lieName,
-} from './course.js?v=9';
-import * as R from './render.js?v=9';
-import * as ED from './editor.js?v=9';
-import { loadStats, loadProgress, saveProgress, recordResult, resultInfo, firstVisit, playerId, getName, setName } from './state.js?v=9';
-import { buildShareText, share, fmtTime } from './share.js?v=9';
-import { fetchBoard, submitScore } from './leaderboard.js?v=9';
+} from './course.js?v=10';
+import * as R from './render.js?v=10';
+import * as ED from './editor.js?v=10';
+import { loadStats, loadProgress, saveProgress, recordResult, resultInfo, firstVisit, playerId, getName, setName } from './state.js?v=10';
+import { buildShareText, share, fmtTime } from './share.js?v=10';
+import { fetchBoard, submitScore } from './leaderboard.js?v=10';
 
 const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 const $ = (id) => document.getElementById(id);
@@ -109,20 +109,21 @@ function showFinalTime() {
 // aims. The roll value is still seeded — Roll just hands the reveal to the
 // player instead of doing it automatically.
 
-// Start of a swing: hide the die, show the Roll button.
+// Start of a swing: hide the die, show the Roll button — and the putt ring,
+// which is available even before rolling (a roll-free putt keeps your draw).
 function promptRoll() {
   game.rolled = false;
   game.turn = null;
   selKey = null;
-  R.clearAim(layers);
-  if (game.over) { $('dice').hidden = true; return; }
+  if (game.over) { R.clearAim(layers); $('dice').hidden = true; return; }
   $('dice').hidden = false;
   $('btn-roll').hidden = false;
   $('die').toggleAttribute('hidden', true); // SVG: no `hidden` IDL prop, set the attribute
   $('roll-text').innerHTML = '';
   $('btn-free').hidden = true;
   $('btn-mull').hidden = true;
-  setHint('Tap Roll to take your shot 🎲');
+  renderAim();
+  setHint('Tap Roll 🎲 — or putt 1 square (small dots) without rolling.');
 }
 
 async function animateDie(frames) {
@@ -188,16 +189,22 @@ function revealTurn() {
 // --- core turn -----------------------------------------------------------------
 
 async function shoot(dirIdx, putt, live, drawOverride) {
-  const drawIdx = drawOverride ?? game.draw;
-  const t = turnDistance(course, game.ball, drawIdx);
-  const dist = putt ? 1 : t.dist; // a putt is always exactly 1 square
+  // A putt made without rolling consumes no draw (-1); once rolled, that die
+  // is spent whatever you do with it.
+  const usedDraw = live ? (putt && !game.rolled ? -1 : game.draw) : drawOverride;
+  const dist = putt ? 1 : turnDistance(course, game.ball, usedDraw).dist;
   const dir = DIRS[dirIdx];
   const from = { ...game.ball };
   const r = resolveShot(course, from, dir, dist);
   if (r.oob) return; // defensive; the UI never offers these
 
+  if (live && isDaily() && !progress.startedAt) {
+    progress.startedAt = Date.now(); // covers a roll-free putt as the opener
+    startTicker();
+  }
+
   game.committed += 1;
-  game.draw = drawIdx + 1; // next swing draws a fresh roll from the stream
+  if (usedDraw >= 0) game.draw = usedDraw + 1; // that roll is gone from the stream
   game.strokes += r.water ? 2 : 1; // water = stroke + penalty stroke
   game.trail.push(r.holed ? '⛳' : r.water ? '🟦' : r.sand ? '🟨' : r.blocked ? '🌲' : r.rough ? '🟫' : '🟩');
   if (!r.water) game.ball = { x: r.x, y: r.y };
@@ -220,7 +227,7 @@ async function shoot(dirIdx, putt, live, drawOverride) {
     }
     animating = false;
     if (isDaily()) {
-      progress.shots.push([dirIdx, putt ? 1 : 0, drawIdx]);
+      progress.shots.push([dirIdx, putt ? 1 : 0, usedDraw]);
       progress.draw = game.draw;
       saveProgress(progress);
     }
@@ -267,21 +274,21 @@ function finish(live) {
 // --- aiming --------------------------------------------------------------------
 
 function renderAim() {
-  if (game.over || !game.turn) { R.clearAim(layers); return; }
-  const dist = game.turn.dist;
+  if (game.over) { R.clearAim(layers); return; }
+  const dist = game.turn?.dist; // undefined before the player rolls
   const targets = [];
   DIRS.forEach((dir, dirIdx) => {
-    if (aimInBounds(game.ball, dir, dist)) {
+    if (dist != null && aimInBounds(game.ball, dir, dist)) {
       targets.push({ key: `r${dirIdx}`, dirIdx, putt: false, x: game.ball.x + dir.dx * dist, y: game.ball.y + dir.dy * dist });
     }
-    // The always-available 1-square putt — a separate ring, unless the roll is
-    // already 1 (then the roll targets ARE the adjacent squares).
-    if (dist > 1 && aimInBounds(game.ball, dir, 1)) {
+    // The always-available 1-square putt — offered before rolling too; hidden
+    // only when a rolled distance of 1 makes the rings identical.
+    if (dist !== 1 && aimInBounds(game.ball, dir, 1)) {
       targets.push({ key: `p${dirIdx}`, dirIdx, putt: true, x: game.ball.x + dir.dx, y: game.ball.y + dir.dy });
     }
   });
   R.showAim(layers, game.ball, targets, selKey, onTargetTap);
-  if (selKey === null) {
+  if (selKey === null && game.turn) {
     const lie = {
       fairway: 'On the fairway: roll +1.',
       rough: 'In the rough: no bonus.',
