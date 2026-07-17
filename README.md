@@ -26,10 +26,18 @@ your browser.
 
 ## Rules
 
-- Each swing rolls a D6 — that's how far the ball flies, in one of 8 compass
-  directions (diagonals count one cell per step). The roll **sequence** is seeded per
-  course and indexed by swing number, so every player gets the same rolls: dailies
-  and shared customs stay a pure routing contest.
+- Each swing, the player taps **Roll** to reveal a D6 — that's how far the ball flies,
+  in one of 8 compass directions (diagonals count one cell per step). The roll
+  **stream** is seeded per course and consumed by a draw index, so play is
+  reproducible (needed for daily replay and anti-cheat).
+- **Rerolls**: the first shot gets one **free reroll** (you're then committed to the
+  new roll); each round also has **2 mulligans** to reroll any shot. A reroll just
+  advances to the next seeded draw. Because rerolls consume extra draws, players who
+  use them diverge from the base stream — fair (everyone has the same resources) but
+  no longer identical rolls for all.
+- Since rerolls/mulligans can let a player legitimately beat the seeded optimum, the
+  leaderboard's anti-cheat floor is `solveBestCase` (fewest strokes with perfect rolls
+  every turn), not the seeded `solve` optimum — so good rounds are never rejected.
 - Lie modifiers: **fairway +1**, **rough ±0**, **sand −1** (clamped to 1..7).
 - You may **always putt exactly 1 square** in any direction instead of using the
   roll (paper-golf's tap-in rule). The solver models it as a distance-1 edge every

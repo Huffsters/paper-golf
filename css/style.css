@@ -90,9 +90,10 @@ main { display: flex; flex-direction: column; align-items: center; width: 100%; 
 /* dice panel */
 #dice {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 5px 14px 8px;
+  gap: 6px;
+  padding: 7px 14px 8px;
   background: var(--card);
   border: 2px solid #33334f;
   border-radius: 14px;
@@ -100,9 +101,39 @@ main { display: flex; flex-direction: column; align-items: center; width: 100%; 
   margin-bottom: 8px;
   color: #33334f;
   font-size: clamp(0.95rem, 3.6vw, 1.1rem);
+  min-height: 52px;
+  justify-content: center;
 }
+#dice-main { display: flex; align-items: center; gap: 12px; min-height: 40px; }
+#die { width: 40px; height: 40px; flex: none; }
 #roll-text b { font-size: 1.15em; }
 .putt-note { color: var(--accent); font-size: 0.9em; }
+
+.roll-btn {
+  font-family: inherit;
+  font-size: 1.15rem;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 12px;
+  padding: 8px 26px;
+  cursor: pointer;
+  box-shadow: 1px 2px 0 rgba(46, 107, 61, 0.5);
+}
+#reroll-row { display: flex; gap: 8px; }
+#reroll-row:empty { display: none; }
+.reroll-btn {
+  font-family: inherit;
+  font-size: 0.92rem;
+  color: #33334f;
+  background: #f4efe0;
+  border: 1.5px solid rgba(51, 51, 79, 0.5);
+  border-radius: 9px;
+  padding: 3px 11px;
+  cursor: pointer;
+}
+.reroll-btn:active { transform: translateY(1px); }
+#hud-mull { letter-spacing: -1px; }
 
 /* editor toolbar */
 #editor-bar {

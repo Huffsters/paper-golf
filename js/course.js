@@ -130,6 +130,46 @@ export function solve(course, maxSwings = 20, maxStrokes = 24) {
   return Infinity;
 }
 
+// Best-case optimum: the fewest strokes if you could conjure the ideal roll
+// every turn (as if rerolls were unlimited). Since a player only ever gets 1
+// free reroll + 2 mulligans, no real round can beat this — it's the safe
+// anti-cheat floor for the leaderboard (par itself still comes from solve(),
+// which honours the actual seeded sequence). Positions only: at each cell the
+// reachable distances are the putt (1) plus every roll 1..6 adjusted by lie.
+export function solveBestCase(course, maxStrokes = 24) {
+  const buckets = [];
+  const best = new Map();
+  const push = (x, y, strokes) => {
+    if (strokes > maxStrokes) return;
+    const k = y * COLS + x;
+    if (best.has(k) && best.get(k) <= strokes) return;
+    best.set(k, strokes);
+    (buckets[strokes] ||= []).push({ x, y });
+  };
+  push(course.tee.x, course.tee.y, 0);
+  for (let s = 0; s <= maxStrokes; s++) {
+    const bucket = buckets[s];
+    if (!bucket) continue;
+    for (const st of bucket) {
+      if (best.get(st.y * COLS + st.x) !== s) continue;
+      const mod = lieMod(course.grid[st.y][st.x]);
+      const dists = new Set([1]);
+      for (let roll = 1; roll <= 6; roll++) dists.add(Math.max(1, Math.min(MAX_DIST, roll + mod)));
+      for (const dir of DIRS) {
+        for (const d of dists) {
+          if (!aimInBounds(st, dir, d)) continue;
+          const r = resolveShot(course, st, dir, d);
+          if (r.oob) continue;
+          if (r.holed) return s + 1;
+          if (r.water) push(st.x, st.y, s + 2);
+          else push(r.x, r.y, s + 1);
+        }
+      }
+    }
+  }
+  return Infinity;
+}
+
 // --- generation ----------------------------------------------------------------
 
 function stamp(grid, cx, cy, radius, type) {

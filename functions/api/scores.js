@@ -3,11 +3,12 @@
 //   GET  /api/scores?puzzle=N&playerId=UUID  -> { top, total, me? }
 //   POST /api/scores {puzzle, playerId, name, strokes, trail} -> same, after insert
 //
-// Reuses the game's own course generator: a submitted score below the solver's
-// optimal is impossible and rejected. One score per player per puzzle (first
-// post stands). No accounts — this is a family-friendly honor-system board.
+// Reuses the game's own course generator: a submitted score below the
+// best-case optimum (perfect rolls every turn) is impossible and rejected.
+// One score per player per puzzle (first post stands). No accounts — this is
+// a family-friendly honor-system board.
 
-import { generateCourse, EPOCH } from '../../js/course.js';
+import { generateCourse, solveBestCase, EPOCH } from '../../js/course.js';
 
 const TOP_N = 50;
 const TRAIL_GLYPHS = new Set(['🟩', '🟦', '🌲', '🟨', '⛳', '❌']);
@@ -106,9 +107,10 @@ export async function onRequestPost({ request, env }) {
   }
   if (!name) return json({ error: 'name required' }, 400);
 
-  // A legal finished round is between the solver's optimum and the pickup cap.
+  // A legal finished round is between the best-case optimum (perfect rolls, so
+  // reroll/mulligan-aided rounds are never wrongly rejected) and the pickup cap.
   const course = generateCourse(puzzle);
-  if (!Number.isInteger(strokes) || strokes < course.min || strokes > course.par + 5) {
+  if (!Number.isInteger(strokes) || strokes < solveBestCase(course) || strokes > course.par + 5) {
     return json({ error: 'impossible score' }, 400);
   }
 

@@ -52,16 +52,19 @@ export function recordResult(puzzle, bucket) {
   return stats;
 }
 
-// Today's round: {puzzle, fmt, shots: [[dirIdx, putt], ...], done, startedAt?, timeMs?, posted?}
-// fmt 3 = dice engine with the 1-square putt option; each shot records its
-// direction and whether it was a putt (distances otherwise replay from the
-// seeded rolls). Older-format progress is discarded rather than misread.
+// Today's round: {puzzle, fmt, shots: [[dirIdx, putt, drawIdx], ...],
+//   draw, freeUsed, mulligansUsed, done, startedAt?, timeMs?, posted?}
+// fmt 4 = manual-roll dice engine: each shot records its direction, whether it
+// was a putt, and the draw index it consumed (rerolls/mulligans advance the
+// draw, so the index — not the swing number — pins the roll for replay). The
+// resource counters are persisted so a refresh can't regain rerolls. Older
+// formats are discarded rather than misread.
 export function loadProgress(puzzle) {
   try {
     const p = JSON.parse(localStorage.getItem(PROG_KEY));
-    if (p && p.puzzle === puzzle && p.fmt === 3 && Array.isArray(p.shots)) return p;
+    if (p && p.puzzle === puzzle && p.fmt === 4 && Array.isArray(p.shots)) return p;
   } catch { /* fall through */ }
-  return { puzzle, fmt: 3, shots: [], done: false };
+  return { puzzle, fmt: 4, shots: [], draw: 0, freeUsed: false, mulligansUsed: 0, done: false };
 }
 
 export function saveProgress(progress) {

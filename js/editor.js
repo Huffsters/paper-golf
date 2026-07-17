@@ -1,8 +1,8 @@
 // Course editor: paint tiles on the board, place tee and hole, then hand the
 // finished course (as a shareable code) back to the game shell.
 
-import { COLS, ROWS, FAIRWAY, TREE, SAND, WATER, ROUGH, encodeCourse, decodeCourse } from './course.js?v=7';
-import * as R from './render.js?v=7';
+import { COLS, ROWS, FAIRWAY, TREE, SAND, WATER, ROUGH, encodeCourse, decodeCourse } from './course.js?v=9';
+import * as R from './render.js?v=9';
 
 const BRUSHES = [
   { id: 'fairway', label: 'Fairway', tile: FAIRWAY, chip: '#a4cd6c' },

@@ -5,12 +5,12 @@
 import {
   generateCourse, decodeCourse, puzzleNumber, msUntilNextPuzzle,
   DIRS, aimInBounds, resolveShot, turnDistance, lieName,
-} from './course.js?v=7';
-import * as R from './render.js?v=7';
-import * as ED from './editor.js?v=7';
-import { loadStats, loadProgress, saveProgress, recordResult, resultInfo, firstVisit, playerId, getName, setName } from './state.js?v=7';
-import { buildShareText, share, fmtTime } from './share.js?v=7';
-import { fetchBoard, submitScore } from './leaderboard.js?v=7';
+} from './course.js?v=9';
+import * as R from './render.js?v=9';
+import * as ED from './editor.js?v=9';
+import { loadStats, loadProgress, saveProgress, recordResult, resultInfo, firstVisit, playerId, getName, setName } from './state.js?v=9';
+import { buildShareText, share, fmtTime } from './share.js?v=9';
+import { fetchBoard, submitScore } from './leaderboard.js?v=9';
 
 const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 const $ = (id) => document.getElementById(id);
@@ -32,6 +32,8 @@ let customFromEditor = false;
 const isDaily = () => mode === 'daily';
 const maxStrokes = () => course.par + 5;
 
+const MULLIGANS = 2; // reroll tokens per round, on top of the first-shot freebie
+
 // --- round lifecycle ---------------------------------------------------------
 
 function startRound(newMode, newCourse, opts = {}) {
@@ -40,7 +42,12 @@ function startRound(newMode, newCourse, opts = {}) {
   customCode = opts.code || null;
   customFromEditor = !!opts.fromEditor;
   layers = R.initBoard($('board'), course);
-  game = { ball: { ...course.tee }, strokes: 0, swings: 0, over: false, pickedUp: false, trail: [] };
+  // draw = index into the seeded roll stream; committed = shots played;
+  // rerolls advance draw and burn freeUsed / mulligansUsed.
+  game = {
+    ball: { ...course.tee }, strokes: 0, committed: 0, over: false, pickedUp: false,
+    trail: [], draw: 0, rolled: false, freeUsed: false, mulligansUsed: 0, turn: null,
+  };
   selKey = null;
   stopTicker();
   $('hud-timebox').hidden = true;
@@ -48,19 +55,23 @@ function startRound(newMode, newCourse, opts = {}) {
   $('editor-bar').hidden = true;
   updateHud();
   updateFooter();
-  beginTurn(false);
+  promptRoll();
 }
 
-// Build the daily round from saved progress (replays today's shots).
+// Build the daily round from saved progress (replays today's shots by their
+// recorded draw index, then restores the live resource counters).
 async function loadDaily() {
   startRound('daily', dailyCourse);
-  for (const [dirIdx, putt] of progress.shots) {
+  for (const [dirIdx, putt, drawIdx] of progress.shots) {
     if (game.over) break;
-    await shoot(dirIdx, !!putt, false);
+    await shoot(dirIdx, !!putt, false, drawIdx);
   }
+  game.freeUsed = !!progress.freeUsed;
+  game.mulligansUsed = progress.mulligansUsed || 0;
+  if (progress.draw != null) game.draw = progress.draw;
   if (!game.over) {
     if (progress.startedAt) startTicker(); // resume the clock mid-round
-    beginTurn(false);
+    promptRoll();
   }
 }
 
@@ -93,49 +104,100 @@ function showFinalTime() {
 }
 
 // --- dice turn ------------------------------------------------------------------
+// Each swing: the player taps Roll to reveal this draw's die, may spend a
+// reroll (free first-shot one, or a mulligan) to advance to the next draw, then
+// aims. The roll value is still seeded — Roll just hands the reveal to the
+// player instead of doing it automatically.
 
-// Reveal this swing's roll and offer the aim targets for its distance.
-async function beginTurn(animateRoll) {
-  if (game.over) { renderDice(null); return; }
-  const t = turnDistance(course, game.ball, game.swings);
-  game.turn = t;
-  if (animateRoll) {
-    animating = true;
-    for (let i = 0; i < 4; i++) {
-      R.drawDie($('die'), 1 + Math.floor(Math.random() * 6));
-      await wait(70);
-    }
-    animating = false;
-  }
-  renderDice(t);
-  renderAim();
+// Start of a swing: hide the die, show the Roll button.
+function promptRoll() {
+  game.rolled = false;
+  game.turn = null;
+  selKey = null;
+  R.clearAim(layers);
+  if (game.over) { $('dice').hidden = true; return; }
+  $('dice').hidden = false;
+  $('btn-roll').hidden = false;
+  $('die').toggleAttribute('hidden', true); // SVG: no `hidden` IDL prop, set the attribute
+  $('roll-text').innerHTML = '';
+  $('btn-free').hidden = true;
+  $('btn-mull').hidden = true;
+  setHint('Tap Roll to take your shot 🎲');
 }
 
-function renderDice(t) {
-  if (!t) { $('dice').hidden = true; return; }
-  $('dice').hidden = false;
+async function animateDie(frames) {
+  animating = true;
+  for (let i = 0; i < frames; i++) {
+    R.drawDie($('die'), 1 + Math.floor(Math.random() * 6));
+    await wait(70);
+  }
+  animating = false;
+}
+
+async function doRoll() {
+  if (animating || game.over || game.rolled) return;
+  if (isDaily() && !progress.startedAt) {
+    progress.startedAt = Date.now(); // the clock starts at your first roll
+    startTicker();
+  }
+  $('btn-roll').hidden = true;
+  $('die').toggleAttribute('hidden', false); // SVG: no `hidden` IDL prop, drop the attribute
+  await animateDie(4);
+  game.rolled = true;
+  revealTurn();
+}
+
+async function doReroll(kind) {
+  if (animating || game.over || !game.rolled) return;
+  if (kind === 'free') {
+    if (game.committed !== 0 || game.freeUsed) return;
+    game.freeUsed = true;
+  } else {
+    if (game.mulligansUsed >= MULLIGANS) return;
+    game.mulligansUsed += 1;
+  }
+  game.draw += 1;
+  if (isDaily()) {
+    progress.draw = game.draw;
+    progress.freeUsed = game.freeUsed;
+    progress.mulligansUsed = game.mulligansUsed;
+    saveProgress(progress);
+  }
+  selKey = null;
+  R.clearAim(layers);
+  await animateDie(3);
+  revealTurn();
+}
+
+// Show this draw's die, the reroll options, and the aim targets.
+function revealTurn() {
+  const t = turnDistance(course, game.ball, game.draw);
+  game.turn = t;
   R.drawDie($('die'), t.roll);
   const modTxt = t.mod > 0 ? ' +1 fairway' : t.mod < 0 ? ' −1 sand' : '';
   const puttNote = t.dist > 1 ? ' <span class="putt-note">· or putt 1</span>' : '';
-  $('roll-text').innerHTML = `You rolled <b>${t.roll}</b>${modTxt} → fly <b>${t.dist}</b> square${t.dist === 1 ? '' : 's'}${puttNote}`;
+  $('roll-text').innerHTML = `Rolled <b>${t.roll}</b>${modTxt} → fly <b>${t.dist}</b> square${t.dist === 1 ? '' : 's'}${puttNote}`;
+  $('btn-free').hidden = !(game.committed === 0 && !game.freeUsed);
+  const mullLeft = MULLIGANS - game.mulligansUsed;
+  $('btn-mull').hidden = mullLeft <= 0;
+  $('btn-mull').textContent = `🔄 mulligan (${mullLeft})`;
+  updateHud();
+  renderAim();
 }
 
 // --- core turn -----------------------------------------------------------------
 
-async function shoot(dirIdx, putt, live) {
-  const t = turnDistance(course, game.ball, game.swings);
+async function shoot(dirIdx, putt, live, drawOverride) {
+  const drawIdx = drawOverride ?? game.draw;
+  const t = turnDistance(course, game.ball, drawIdx);
   const dist = putt ? 1 : t.dist; // a putt is always exactly 1 square
   const dir = DIRS[dirIdx];
   const from = { ...game.ball };
   const r = resolveShot(course, from, dir, dist);
   if (r.oob) return; // defensive; the UI never offers these
 
-  if (live && isDaily() && !progress.startedAt) {
-    progress.startedAt = Date.now(); // the clock starts at your first swing
-    startTicker();
-  }
-
-  game.swings += 1;
+  game.committed += 1;
+  game.draw = drawIdx + 1; // next swing draws a fresh roll from the stream
   game.strokes += r.water ? 2 : 1; // water = stroke + penalty stroke
   game.trail.push(r.holed ? '⛳' : r.water ? '🟦' : r.sand ? '🟨' : r.blocked ? '🌲' : r.rough ? '🟫' : '🟩');
   if (!r.water) game.ball = { x: r.x, y: r.y };
@@ -158,7 +220,8 @@ async function shoot(dirIdx, putt, live) {
     }
     animating = false;
     if (isDaily()) {
-      progress.shots.push([dirIdx, putt ? 1 : 0]);
+      progress.shots.push([dirIdx, putt ? 1 : 0, drawIdx]);
+      progress.draw = game.draw;
       saveProgress(progress);
     }
   } else {
@@ -174,13 +237,13 @@ async function shoot(dirIdx, putt, live) {
     finish(live);
   }
   updateHud();
-  if (!game.over && live) await beginTurn(true);
+  if (!game.over && live) promptRoll(); // next swing waits for the player to Roll
 }
 
 function finish(live) {
   game.over = true;
   R.clearAim(layers);
-  renderDice(null);
+  $('dice').hidden = true;
   stopTicker();
   const diff = game.strokes - course.par;
   const info = resultInfo(diff, game.pickedUp);
@@ -247,6 +310,10 @@ function updateHud() {
   $('hud-hole').textContent = { daily: `Hole #${dailyNumber}`, free: 'Free play', custom: 'Custom hole', edit: 'Editor' }[mode];
   $('hud-par').textContent = mode === 'edit' ? '✏️' : `Par ${course.par}`;
   $('hud-strokes').textContent = mode === 'edit' ? 'paint!' : `Strokes ${game.strokes}`;
+  const mullBox = $('hud-mullbox');
+  if (mode === 'edit' || !game) { mullBox.hidden = true; return; }
+  mullBox.hidden = false;
+  $('hud-mull').textContent = '🔄'.repeat(MULLIGANS - game.mulligansUsed) || '—';
 }
 
 function setHint(text) {
@@ -277,6 +344,10 @@ $('btn-newfree').addEventListener('click', () => {
   if (animating) return;
   startRound('free', randomCourse());
 });
+
+$('btn-roll').addEventListener('click', doRoll);
+$('btn-free').addEventListener('click', () => doReroll('free'));
+$('btn-mull').addEventListener('click', () => doReroll('mull'));
 
 // --- editor --------------------------------------------------------------------
 
@@ -532,5 +603,16 @@ async function boot() {
   if (m && !custom) setHint('That course link is broken — playing today’s hole instead.');
   else if (!game.over && firstVisit()) openModal('modal-help');
 }
+
+// A tab left open across local midnight would otherwise stay pinned to
+// yesterday's puzzle (stale course, save key, and leaderboard). When it regains
+// focus on a new day, reload to pick up today's hole.
+function checkDateRollover() {
+  if (document.visibilityState === 'visible' && puzzleNumber() !== dailyNumber) {
+    location.reload();
+  }
+}
+document.addEventListener('visibilitychange', checkDateRollover);
+window.addEventListener('focus', checkDateRollover);
 
 boot();
