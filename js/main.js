@@ -79,6 +79,14 @@ function randomCourse() {
   return generateCourse(1e6 + Math.floor(Math.random() * 2 ** 30));
 }
 
+// Practice replay of today's hole: same course, same seeded rolls, fresh
+// rerolls — but nothing counts. The official round lives untouched in
+// `progress`, so stats and the leaderboard can only ever see the real score.
+function startReplay() {
+  startRound('replay', dailyCourse);
+  setHint('Practice round — same hole, same dice, nothing counts.');
+}
+
 // --- round timer (daily only) ------------------------------------------------
 
 let ticker = null;
@@ -265,6 +273,8 @@ function finish(live) {
     }
     showFinalTime();
     setHint(game.pickedUp ? 'That’s the stroke limit — pick up. Tomorrow’s hole awaits.' : `${info.name} — see you tomorrow!`);
+  } else if (mode === 'replay') {
+    setHint(`${info.name} — just practice; your official score stands.`);
   } else {
     setHint(`${info.name} — grab another hole any time.`);
   }
@@ -314,7 +324,7 @@ async function onTargetTap(dirIdx, putt) {
 // --- chrome --------------------------------------------------------------------
 
 function updateHud() {
-  $('hud-hole').textContent = { daily: `Hole #${dailyNumber}`, free: 'Free play', custom: 'Custom hole', edit: 'Editor' }[mode];
+  $('hud-hole').textContent = { daily: `Hole #${dailyNumber}`, replay: `Practice #${dailyNumber}`, free: 'Free play', custom: 'Custom hole', edit: 'Editor' }[mode];
   $('hud-par').textContent = mode === 'edit' ? '✏️' : `Par ${course.par}`;
   $('hud-strokes').textContent = mode === 'edit' ? 'paint!' : `Strokes ${game.strokes}`;
   const mullBox = $('hud-mullbox');
@@ -330,6 +340,7 @@ function setHint(text) {
 function updateFooter() {
   $('footer-note').textContent = {
     daily: 'a new hole every midnight',
+    replay: 'practicing today’s hole — nothing counts',
     free: 'free play — nothing counts',
     custom: 'a friend’s course — nothing counts',
     edit: 'draw, then share your hole',
@@ -443,7 +454,7 @@ function openEndModal() {
   const diff = game.strokes - course.par;
   const info = resultInfo(diff, game.pickedUp);
   const daily = isDaily();
-  const where = { daily: `Hole #${dailyNumber}`, free: 'Free play', custom: 'Custom hole' }[mode];
+  const where = { daily: `Hole #${dailyNumber}`, replay: `Practice #${dailyNumber}`, free: 'Free play', custom: 'Custom hole' }[mode];
   const timeStr = daily && progress.timeMs != null && !game.pickedUp ? ` · ${fmtTime(progress.timeMs)}` : '';
   $('end-title').textContent = info.name;
   $('end-sub').textContent = game.pickedUp
@@ -454,7 +465,9 @@ function openEndModal() {
   $('leaderboard').hidden = !daily;
   $('end-next').hidden = !daily;
   $('end-stats').hidden = !daily;
+  $('btn-replay-daily').hidden = !daily; // the daily modal only opens on a finished round
   $('free-actions').hidden = mode !== 'free';
+  $('replay-actions').hidden = mode !== 'replay';
   $('custom-actions').hidden = mode !== 'custom';
   $('btn-back-editor').hidden = !customFromEditor;
   if (daily) {
@@ -470,7 +483,15 @@ $('btn-next-free').addEventListener('click', () => {
   startRound('free', randomCourse());
 });
 
-for (const id of ['btn-back-daily', 'btn-back-daily2']) {
+for (const id of ['btn-replay-daily', 'btn-replay-again']) {
+  $(id).addEventListener('click', () => {
+    if (animating) return;
+    closeModal('modal-end');
+    startReplay();
+  });
+}
+
+for (const id of ['btn-back-daily', 'btn-back-daily2', 'btn-back-daily3']) {
   $(id).addEventListener('click', async () => {
     closeModal('modal-end');
     await loadDaily();
